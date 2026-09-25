@@ -1,0 +1,10 @@
+{
+  "description": "Verify email addresses instantly with single or bulk checks to ensure deliverability, reduce bounce rates, and improve email campaign success.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
