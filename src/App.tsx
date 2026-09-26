@@ -226,7 +226,9 @@ function NavBar({ activeTab, setActiveTab }: { activeTab: TabId; setActiveTab: (
 
       {/* GitHub */}
       <a
-        href="#"
+        href="https://github.com/Firoz587"
+        target="_blank"
+        rel="noreferrer"
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors duration-150"
         style={{ border: '1px solid rgba(148,163,184,0.12)' }}
       >
@@ -825,6 +827,7 @@ export default function App() {
               { label: 'API Docs', href: API_DOCS_URL },
               { label: 'Disposable List', href: '/disposable' },
               { label: 'Status', href: '/api/health' },
+                { label: 'Contact me', href: 'https://firozislam.me' },
             ].map((link) => (
               <a
                 key={link.label}
