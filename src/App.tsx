@@ -16,6 +16,11 @@ interface VerifyResult {
   executionTimeMs: number
   mxRecords: string[]
   domain: string
+  remarks: string
+  roleBased: boolean
+  msp: string | null
+  freeEmail: boolean
+  verifiedAt: string
 }
 
 interface BulkRow {
@@ -31,27 +36,40 @@ type TabId = 'single' | 'bulk'
 interface ApiResult {
   email: string
   is_valid: boolean
-  status: 'valid' | 'invalid' | 'disposable'
+  status: 'valid' | 'invalid' | 'disposable' | 'clean' | 'dirty'
   syntax_valid: boolean
   mx_valid: boolean
   is_disposable: boolean
   mx_records: string[]
   smtp_reachable: boolean | null
   execution_time_ms: number
+  remarks?: string
+  disposable?: boolean | null
+  role_based?: boolean
+  mx_found?: boolean
+  msp?: string | null
+  email_domain?: string
+  free_email?: boolean
+  verified_at?: string
 }
 
 function mapResult(result: ApiResult): VerifyResult {
   const domain = result.email.split('@')[1] ?? ''
   return {
     email: result.email,
-    status: result.status === 'disposable' ? 'risky' : result.status,
+    status: result.status === 'clean' || result.status === 'valid' ? 'valid' : result.status === 'disposable' || result.status === 'dirty' ? 'risky' : 'invalid',
     syntaxValid: result.syntax_valid,
     mxValid: result.mx_valid,
-    disposable: result.is_disposable,
+    disposable: result.disposable ?? result.is_disposable,
     smtpReachable: result.smtp_reachable,
     executionTimeMs: result.execution_time_ms,
     mxRecords: result.mx_records,
-    domain,
+    domain: result.email_domain ?? domain,
+    remarks: result.remarks ?? (result.status === 'valid' ? 'High Quality' : 'Verification requires attention'),
+    roleBased: result.role_based ?? false,
+    msp: result.msp ?? null,
+    freeEmail: result.free_email ?? false,
+    verifiedAt: result.verified_at ?? '',
   }
 }
 
@@ -277,7 +295,7 @@ function SingleCheckSection() {
         <label className="block text-xs font-medium text-slate-400 mono mb-2 uppercase tracking-wider">
           Email Address
         </label>
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <input
             type="email"
             value={email}
@@ -289,7 +307,7 @@ function SingleCheckSection() {
           <button
             onClick={handleCheck}
             disabled={status === 'loading'}
-            className="btn-glow px-6 py-3 rounded-lg text-sm font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+            className="btn-glow w-full rounded-lg px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:whitespace-nowrap"
           >
             {status === 'loading' ? (
               <span className="flex items-center gap-2">
@@ -306,7 +324,7 @@ function SingleCheckSection() {
         </div>
 
         {/* Quick examples */}
-        <div className="flex items-center gap-2 mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="text-xs text-slate-500">Try:</span>
           {['valid@stripe.com', 'test@mailinator.com', 'invalid@@bad'].map((ex) => (
             <button
@@ -372,8 +390,8 @@ function SingleCheckSection() {
           style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
         >
           {/* Header */}
-          <div className="flex items-start justify-between mb-5">
-            <div>
+          <div className="flex flex-col gap-4 mb-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <div className="flex items-center gap-3 mb-1">
                 <StatusBadge status={result.status} />
                 <span
@@ -383,21 +401,23 @@ function SingleCheckSection() {
                   {result.executionTimeMs}ms
                 </span>
               </div>
-              <p className="mono text-sm text-slate-300 mt-2">{result.email}</p>
+              <p className="mono mt-2 break-all text-sm text-slate-300">{result.email}</p>
+              <p className="mt-2 text-sm font-medium text-slate-200">{result.remarks}</p>
             </div>
             {result.domain && (
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 <p className="text-xs text-slate-500 mb-0.5">Domain</p>
                 <p className="mono text-xs text-slate-300">{result.domain}</p>
+                {result.msp && <p className="mono mt-1 text-xs text-cyan-300">{result.msp}</p>}
               </div>
             )}
           </div>
 
           {/* Checklist */}
-          <div>
+          <div className="overflow-x-auto">
             <CheckRow icon="⌨️" label="Syntax Check" value={result.syntaxValid} delay={0} />
             <CheckRow icon="🌐" label="Domain MX Record" value={result.mxValid} delay={80} />
-            <CheckRow icon="🗑️" label="Disposable / Temporary Email" value={!result.disposable} delay={160} />
+            <CheckRow icon="🗑️" label="Disposable / Temporary Email" value={result.disposable === null ? null : !result.disposable} delay={160} />
             <CheckRow
               icon="📡"
               label="SMTP Server Ping"
@@ -407,8 +427,27 @@ function SingleCheckSection() {
           </div>
 
           {result.mxRecords.length > 0 && (
-            <p className="mt-4 text-xs text-slate-500">MX: <span className="mono text-slate-400">{result.mxRecords.join(', ')}</span></p>
+            <div className="mt-4 rounded-lg border border-slate-700/40 bg-slate-950/30 p-3">
+              <p className="mb-2 text-xs text-slate-500">MX records</p>
+              <div className="grid gap-1 sm:grid-cols-2">
+                {result.mxRecords.map((record) => <span key={record} className="mono break-all text-xs text-slate-400">{record}</span>)}
+              </div>
+            </div>
           )}
+
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ['Role based', result.roleBased ? 'Yes' : 'No'],
+              ['Free email', result.freeEmail ? 'Yes' : 'No'],
+              ['MX found', result.mxValid ? 'Yes' : 'No'],
+              ['Disposable', result.disposable === null ? 'Unknown' : result.disposable ? 'Yes' : 'No'],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-slate-700/30 bg-slate-950/20 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">{label}</p>
+                <p className="mono mt-1 text-xs text-slate-200">{value}</p>
+              </div>
+            ))}
+          </div>
 
           {/* Footer note */}
           <div
@@ -456,7 +495,7 @@ function BulkCheckSection() {
       setRows(results.map((result, index) => ({
         id: index + 1,
         email: result.email,
-        status: result.status === 'disposable' ? 'risky' : result.status,
+        status: result.status === 'clean' || result.status === 'valid' ? 'valid' : result.status === 'dirty' || result.status === 'disposable' ? 'risky' : 'invalid',
         mxValid: result.mx_valid,
         disposable: result.is_disposable,
       })))
@@ -612,6 +651,7 @@ function BulkCheckSection() {
             className="grid gap-3 px-5 py-3 mono text-xs font-medium uppercase tracking-wider text-slate-500"
             style={{
               gridTemplateColumns: '1fr 120px 80px 100px auto',
+              minWidth: '620px',
               borderBottom: '1px solid rgba(148,163,184,0.08)',
               background: 'rgba(8,13,26,0.5)',
             }}
@@ -631,6 +671,7 @@ function BulkCheckSection() {
                 className="grid gap-3 px-5 py-3 items-center hover:bg-white/[0.02] transition-colors duration-100"
                 style={{
                   gridTemplateColumns: '1fr 120px 80px 100px auto',
+                  minWidth: '620px',
                   borderBottom: '1px solid rgba(148,163,184,0.05)',
                   animation: 'slide-in 0.25s ease forwards',
                 }}

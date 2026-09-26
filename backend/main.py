@@ -94,10 +94,18 @@ async def verify_bulk(file: UploadFile = File(...)) -> BulkVerifyResponse:
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="File exceeds the 5 MB limit.")
 
-    try:
-        emails = _emails_from_csv(content.decode("utf-8-sig"))
-    except UnicodeDecodeError as exc:
-        raise HTTPException(status_code=400, detail="CSV must be UTF-8 encoded.") from exc
+    decoded_content = None
+    for encoding in ("utf-8-sig", "utf-16", "cp1252"):
+        try:
+            decoded_content = content.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+
+    if decoded_content is None:
+        raise HTTPException(status_code=400, detail="CSV encoding is not supported. Save the file as UTF-8 CSV.")
+
+    emails = _emails_from_csv(decoded_content)
 
     if not emails:
         raise HTTPException(status_code=400, detail="The uploaded file contains no email addresses.")
@@ -111,7 +119,11 @@ async def verify_bulk(file: UploadFile = File(...)) -> BulkVerifyResponse:
             return (await verify_email(email)).as_dict()
 
     results = await asyncio.gather(*(limited_verify(email) for email in emails))
-    counts = {status: sum(result["status"] == status for result in results) for status in ("valid", "invalid", "disposable")}
+    counts = {
+        "valid": sum(result["status"] == "clean" for result in results),
+        "invalid": sum(result["status"] == "dirty" for result in results),
+        "disposable": sum(result.get("disposable") is True for result in results),
+    }
     return BulkVerifyResponse(
         results=results,
         total=len(results),

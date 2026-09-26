@@ -44,7 +44,7 @@ After deployment, test the dashboard, the Disposable List page, and the API Docs
 
 ## CSV format
 
-Use a UTF-8 `.csv` or `.txt` file with one email address per line. A first row named `email` is ignored automatically.
+Use a `.csv` or `.txt` file with one email address per line. UTF-8, UTF-16, and common Windows CSV exports are supported. A first row named `email` is ignored automatically.
 
 ```text
 email
