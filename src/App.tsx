@@ -45,7 +45,7 @@ interface ApiResult {
   checks: {
     syntax_valid: boolean
     mx_found: boolean
-    smtp_check: boolean
+    smtp_check: boolean | null
     is_catch_all: boolean
     role_based: boolean
     disposable: boolean

@@ -101,7 +101,7 @@ class VerificationResult:
             "checks": {
                 "syntax_valid": self.syntax_valid,
                 "mx_found": self.mx_found,
-                "smtp_check": self.smtp_reachable is True,
+                "smtp_check": self.smtp_reachable,
                 "is_catch_all": False,
                 "role_based": self.role_based,
                 "disposable": self.is_disposable,
