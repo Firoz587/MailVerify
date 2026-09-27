@@ -35,41 +35,46 @@ type TabId = 'single' | 'bulk'
 
 interface ApiResult {
   email: string
-  is_valid: boolean
-  status: 'valid' | 'invalid' | 'disposable' | 'clean' | 'dirty'
-  syntax_valid: boolean
-  mx_valid: boolean
-  is_disposable: boolean
-  mx_records: string[]
-  smtp_reachable: boolean | null
+  user: string
+  domain: string
+  status: 'valid' | 'invalid'
+  sub_status: string
+  reason: string
+  is_deliverable: boolean
+  quality_score: number
+  checks: {
+    syntax_valid: boolean
+    mx_found: boolean
+    smtp_check: boolean
+    is_catch_all: boolean
+    role_based: boolean
+    disposable: boolean
+    free_email: boolean
+  }
+  mail_server: {
+    provider: string | null
+    mx_records: Array<{ host: string; priority: number }>
+  }
   execution_time_ms: number
-  remarks?: string
-  disposable?: boolean | null
-  role_based?: boolean
-  mx_found?: boolean
-  msp?: string | null
-  email_domain?: string
-  free_email?: boolean
-  verified_at?: string
+  verified_at: string
 }
 
 function mapResult(result: ApiResult): VerifyResult {
-  const domain = result.email.split('@')[1] ?? ''
   return {
     email: result.email,
-    status: result.status === 'clean' || result.status === 'valid' ? 'valid' : result.status === 'disposable' || result.status === 'dirty' ? 'risky' : 'invalid',
-    syntaxValid: result.syntax_valid,
-    mxValid: result.mx_valid,
-    disposable: result.disposable ?? result.is_disposable,
-    smtpReachable: result.smtp_reachable,
+    status: result.is_deliverable ? 'valid' : result.checks.disposable || result.checks.is_catch_all ? 'risky' : 'invalid',
+    syntaxValid: result.checks.syntax_valid,
+    mxValid: result.checks.mx_found,
+    disposable: result.checks.disposable,
+    smtpReachable: result.checks.smtp_check,
     executionTimeMs: result.execution_time_ms,
-    mxRecords: result.mx_records,
-    domain: result.email_domain ?? domain,
-    remarks: result.remarks ?? (result.status === 'valid' ? 'High Quality' : 'Verification requires attention'),
-    roleBased: result.role_based ?? false,
-    msp: result.msp ?? null,
-    freeEmail: result.free_email ?? false,
-    verifiedAt: result.verified_at ?? '',
+    mxRecords: result.mail_server.mx_records.map((record) => `${record.host}:${record.priority}`),
+    domain: result.domain,
+    remarks: result.reason,
+    roleBased: result.checks.role_based,
+    msp: result.mail_server.provider,
+    freeEmail: result.checks.free_email,
+    verifiedAt: result.verified_at,
   }
 }
 

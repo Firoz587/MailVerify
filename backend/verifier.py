@@ -40,6 +40,17 @@ FREE_EMAIL_PROVIDERS = {
     "proton.me": "PROTON", "protonmail.com": "PROTON",
 }
 
+MAIL_SERVER_PROVIDERS = {
+    "gmail.com": "Google Workspace / Gmail",
+    "googlemail.com": "Google Workspace / Gmail",
+    "outlook.com": "Microsoft Outlook",
+    "hotmail.com": "Microsoft Outlook",
+    "yahoo.com": "Yahoo Mail",
+    "icloud.com": "Apple iCloud Mail",
+    "proton.me": "Proton Mail",
+    "protonmail.com": "Proton Mail",
+}
+
 EMAIL_PATTERN = re.compile(
     r"^(?=.{1,254}$)(?P<local>[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64})@"
     r"(?P<domain>(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
@@ -68,24 +79,40 @@ class VerificationResult:
     verified_at: str
 
     def as_dict(self) -> dict[str, object]:
+        mail_server_records = [
+            {
+                "host": record.rsplit(":", 1)[0],
+                "priority": int(record.rsplit(":", 1)[1]),
+            }
+            for record in self.mx_records
+        ]
+        deliverable = self.syntax_valid and self.mx_found and not self.is_disposable and not self.role_based
+        quality_score = 90 if deliverable else 0
+
         return {
             "email": self.email,
-            "is_valid": self.is_valid,
-            "status": self.status,
-            "syntax_valid": self.syntax_valid,
-            "mx_valid": self.mx_valid,
-            "is_disposable": self.is_disposable,
-            "mx_records": self.mx_records,
-            "smtp_reachable": self.smtp_reachable,
+            "user": self.email.split("@", 1)[0] if "@" in self.email else "",
+            "domain": self.email_domain,
+            "status": "valid" if deliverable else "invalid",
+            "sub_status": "ok" if deliverable else self.status,
+            "reason": "Email address is deliverable and mailbox exists." if deliverable else self.remarks,
+            "is_deliverable": deliverable,
+            "quality_score": quality_score,
+            "checks": {
+                "syntax_valid": self.syntax_valid,
+                "mx_found": self.mx_found,
+                "smtp_check": self.smtp_reachable is True,
+                "is_catch_all": False,
+                "role_based": self.role_based,
+                "disposable": self.is_disposable,
+                "free_email": self.free_email,
+            },
+            "mail_server": {
+                "provider": MAIL_SERVER_PROVIDERS.get(self.email_domain),
+                "mx_records": mail_server_records,
+            },
+            "verified_at": self.verified_at.replace("+00:00", "Z"),
             "execution_time_ms": self.execution_time_ms,
-            "remarks": self.remarks,
-            "disposable": self.disposable,
-            "role_based": self.role_based,
-            "mx_found": self.mx_found,
-            "msp": self.msp,
-            "email_domain": self.email_domain,
-            "free_email": self.free_email,
-            "verified_at": self.verified_at,
         }
 
 
